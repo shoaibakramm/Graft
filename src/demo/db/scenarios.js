@@ -1,60 +1,5 @@
 import { queryDB } from './queryDB';
 
-
-
-
-
-// To complete
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * All scenario queries live here.
  * 
@@ -100,12 +45,12 @@ export async function queryOrgChart(connection, tableName) {
   try {
     const rows = await queryDB(connection, sql);
 
-
+    // Validate we got at least one row
     if (rows.length === 0) {
       console.warn('queryOrgChart: no rows returned. Is the dataset column correct?');
     }
 
-
+    // Validate there is exactly one root node (parentId === null)
     const roots = rows.filter((r) => r.parentId === null || r.parentId === 'null');
     if (roots.length === 0) {
       console.warn('queryOrgChart: no root node found (no row with empty parentId).');
@@ -153,14 +98,13 @@ export async function queryNavTaxonomy(connection, tableName) {
   try {
     const rows = await queryDB(connection, sql);
 
-
+    // Validate we got at least one row
     if (rows.length === 0) {
       console.warn('queryNavTaxonomy: no rows returned. Is the dataset column correct?');
     }
 
-
+    // Validate root node
     const roots = rows.filter((r) => r.parentId === null || r.parentId === 'null');
-    
     if (roots.length === 0) {
       console.warn('queryNavTaxonomy: no root node found.');
     }
@@ -175,14 +119,6 @@ export async function queryNavTaxonomy(connection, tableName) {
     throw new Error(`queryNavTaxonomy: failed — ${error.message}`);
   }
 }
-
-
-
-
-
-
-
-
 
 /**
  * Utility: lists all distinct dataset values in the table.

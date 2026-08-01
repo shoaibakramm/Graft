@@ -1,92 +1,54 @@
-.app-container {
-  width: 100%;
-  min-height: 100vh;
-  padding: 2rem;
-  box-sizing: border-box;
-}
-
-.file-uploader {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1.5rem;
-  border: 2px dashed #ccc;
-  border-radius: 8px;
+.db-status {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
   max-width: 480px;
 }
 
-.file-uploader__label {
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.file-uploader__input {
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.file-uploader__status {
-  font-size: 0.875rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
-}
-
-.file-uploader__status--validating,
-.file-uploader__status--parsing {
-  background-color: #fff8e1;
-  color: #7c5e00;
-}
-
-.file-uploader__status--done {
+.db-status--ready {
   background-color: #e8f5e9;
   color: #2e7d32;
 }
 
-.file-uploader__status--error {
-  background-color: #ffebee;
-  color: #c62828;
+.db-status--loading {
+  background-color: #fff8e1;
+  color: #7c5e00;
 }
 
-
-.data-preview {
-  margin-top: 2rem;
-  max-width: 100%;
-}
-
-.data-preview__table-wrapper {
-  overflow-x: auto;
-  margin-top: 0.5rem;
-}
-
-.data-preview__table {
-  border-collapse: collapse;
-  font-size: 0.85rem;
-  min-width: 400px;
-}
-
-.data-preview__table th,
-.data-preview__table td {
-  border: 1px solid #ddd;
-  padding: 0.4rem 0.75rem;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.data-preview__table th {
-  background-color: #f5f5f5;
-  font-weight: 600;
-}
-
-.data-preview__table tr:nth-child(even) {
-  background-color: #fafafa;
-}
-
-.parse-error {
+.results-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
   margin-top: 1.5rem;
-  padding: 0.75rem 1rem;
-  background-color: #ffebee;
+}
+
+.result-panel {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.result-panel h2 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem 0;
+}
+
+.result-panel p {
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem 0;
+}
+
+.null-badge {
+  font-family: monospace;
+  font-size: 0.8rem;
+  background: #fce4ec;
   color: #c62828;
+  padding: 1px 6px;
   border-radius: 4px;
-  font-size: 0.875rem;
-  max-width: 480px;
+}
+
+.table-note {
+  font-size: 0.75rem;
+  color: #999;
+  margin-top: 0.5rem;
 }

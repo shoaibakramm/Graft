@@ -18,10 +18,47 @@ const MANUAL_BUNDLES = {
 
 
 
+
+
+let instancePromise = null;
+
+export function initDB() {
+
+  if (!instancePromise) 
+  {
+    instancePromise = createDB().catch((error) => {
+      instancePromise = null;
+      throw error;
+    });
+  }
+
+  return instancePromise;
+}
+
+export async function closeDB() {
+
+  if (!instancePromise) 
+  {
+    return;
+  }
+
+  try {
+    const { db, connection } = await instancePromise;
+    await connection.close();
+    await db.terminate();
+  } catch {
+    // already gone
+  } finally {
+    instancePromise = null;
+  }
+}
+
+
+
 /**
  * @returns {Promise<{ db: duckdb.AsyncDuckDB, connection: duckdb.AsyncDuckDBConnection }>}
  */
-export async function initDB() {
+async function createDB() {
   try {
 
     console.log('DuckDB: selecting best bundle for this browser...');

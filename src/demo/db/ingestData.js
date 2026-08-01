@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 /**
  * @param {import('@duckdb/duckdb-wasm').AsyncDuckDBConnection} connection
  * @param {string} tableName 
