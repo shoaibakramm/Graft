@@ -47,10 +47,14 @@ function FileUploader({ onDataParsed, onError }) {
       
       setStatusMessage(errorMsg);
       
-      if (onError) onError(errorMsg);
+      if (onError) 
       {
-        return;
+        onError(errorMsg);
       }
+
+      event.target.value = '';
+
+      return;
       
     }
 
@@ -87,6 +91,8 @@ function FileUploader({ onDataParsed, onError }) {
         } 
 
       });
+
+    event.target.value = '';
   }
 
   return (

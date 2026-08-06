@@ -1,26 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
 import { initDB } from './initDB';
 import { ingestData } from './ingestData';
-import { queryOrgChart, queryNavTaxonomy, listDatasets } from './scenarios';
+import { listColumns, listDatasets, queryDataset, queryWholeTable } from './scenarios';
 
 /**
  * useDatabase hook
- * 
+ *
  * Manages the full DuckDB lifecycle:
  * - Initializes DuckDB once when the hook first mounts
  * - Exposes an ingest function to load parsed rows into DuckDB
- * - Exposes query functions for both scenarios
+ * - Exposes runDiscovery(), which finds every dataset in the table and
+ *   returns one tree's rows per dataset — no scenario names hardcoded
  * - Tracks loading/error/ready states
- * 
+ *
  * Usage:
  * const {
  *   isReady,       // true when DuckDB is initialized and ready
  *   isIngesting,   // true while data is being loaded into DuckDB
- *   isQuerying,    // true while a SQL query is running
+ *   isQuerying,    // true while SQL queries are running
  *   error,         // string error message if anything fails, null otherwise
  *   ingest,        // function(rows) — loads rows into DuckDB
- *   runOrgChart,   // function() — runs Scenario A query
- *   runNavTaxonomy // function() — runs Scenario B query
+ *   runDiscovery,  // function() — returns [{ name, rows }] per dataset found
  * } = useDatabase()
  */
 export function useDatabase() {
@@ -42,9 +42,7 @@ export function useDatabase() {
   const [dbInfo, setDbInfo] = useState(null);
 
   /**
-   * Initialize DuckDB when the hook first mounts.
-   * This runs exactly once — the empty dependency array []
-   * means useEffect only fires on mount.
+   * Initialize DuckDB when the hook first mounts. Runs exactly once.
    */
   useEffect(() => {
     let cancelled = false;
@@ -55,10 +53,8 @@ export function useDatabase() {
         setError(null);
         setIsReady(false);
 
-        const { db, connection: conn } = await initDB();
+        const { connection: conn } = await initDB();
 
-        // If the component unmounted while we were initializing,
-        // don't update state (prevents memory leaks)
         if (cancelled) return;
 
         setConnection(conn);
@@ -80,8 +76,6 @@ export function useDatabase() {
 
     initialize();
 
-    // Cleanup function — runs if the component unmounts
-    // Sets cancelled = true so any in-flight async work is ignored
     return () => {
       cancelled = true;
     };
@@ -89,13 +83,9 @@ export function useDatabase() {
 
   /**
    * ingest(rows)
-   * 
-   * Takes parsed rows from Phase 1 and loads them into DuckDB.
-   * Always uses the table name 'tree_data' — dropping and
-   * recreating it if the user uploads a new file.
-   * 
-   * @param {Array<Object>} rows - Parsed rows from FileUploader
-   * @returns {Promise<void>}
+   *
+   * Takes parsed rows and loads them into DuckDB under the fixed table name
+   * 'tree_data', dropping any previous upload.
    */
   const ingest = useCallback(async (rows) => {
     if (!connection) {
@@ -117,34 +107,31 @@ export function useDatabase() {
 
       setTableName(result.tableName);
 
-        if (result.rowCount === 0) {
-            console.warn('useDatabase: no rows ingested — skipping scenario queries.');
-            setIsIngesting(false);
-            return;
-        }
+      if (result.rowCount === 0) {
+        console.warn('useDatabase: no rows ingested.');
+        return;
+      }
 
       console.log(`useDatabase: ✅ ingested ${result.rowCount} rows into "${result.tableName}".`);
-
-      // List available datasets for debugging
-      await listDatasets(connection, result.tableName);
 
     } catch (err) {
       console.error('useDatabase: ingestion failed —', err);
       setError(`Data ingestion failed: ${err.message}`);
     } finally {
-      // Always turn off the ingesting flag whether we succeeded or failed
       setIsIngesting(false);
     }
   }, [connection]);
 
   /**
-   * runOrgChart()
-   * 
-   * Runs the Scenario A SQL query and returns org chart nodes.
-   * 
-   * @returns {Promise<Array<Object>>}
+   * runDiscovery()
+   *
+   * Looks at the ingested table and returns one entry per tree found:
+   *   - table has a "dataset" column -> one entry per distinct value
+   *   - no "dataset" column          -> one entry for the whole table
+   *
+   * @returns {Promise<Array<{ name: string, rows: Array<Object> }>>}
    */
-  const runOrgChart = useCallback(async () => {
+  const runDiscovery = useCallback(async () => {
     if (!connection || !tableName) {
       setError('Cannot query: no data has been ingested yet.');
       return [];
@@ -153,46 +140,50 @@ export function useDatabase() {
     try {
       setIsQuerying(true);
       setError(null);
-      console.log('useDatabase: running org chart query...');
+      console.log('useDatabase: discovering datasets...');
 
-      const rows = await queryOrgChart(connection, tableName);
-      console.log(`useDatabase: ✅ org chart query returned ${rows.length} nodes.`);
-      return rows;
+      const columns = await listColumns(connection, tableName);
+
+      // The one hard requirement on any uploaded file.
+      for (const required of ['id', 'name', 'parentId']) {
+        if (!columns.includes(required)) {
+          setError(
+            `The uploaded file has no "${required}" column. ` +
+            `Columns found: ${columns.join(', ')}. ` +
+            `Files need id, name and parentId to form a tree.`
+          );
+          return [];
+        }
+      }
+
+      if (!columns.includes('dataset')) {
+        console.log('useDatabase: no dataset column — treating the table as one tree.');
+        const rows = await queryWholeTable(connection, tableName, columns);
+        return [{ name: 'Tree', rows }];
+      }
+
+      const datasets = await listDatasets(connection, tableName);
+
+      if (datasets.length === 0) {
+        console.log('useDatabase: dataset column present but empty — one tree.');
+        const rows = await queryWholeTable(connection, tableName, columns);
+        return [{ name: 'Tree', rows }];
+      }
+
+      console.log(`useDatabase: found ${datasets.length} dataset(s) —`, datasets);
+
+      const results = [];
+
+      for (const datasetValue of datasets) {
+        const rows = await queryDataset(connection, tableName, columns, datasetValue);
+        results.push({ name: datasetValue, rows });
+      }
+
+      return results;
 
     } catch (err) {
-      console.error('useDatabase: org chart query failed —', err);
-      setError(`Org chart query failed: ${err.message}`);
-      return [];
-    } finally {
-      setIsQuerying(false);
-    }
-  }, [connection, tableName]);
-
-  /**
-   * runNavTaxonomy()
-   * 
-   * Runs the Scenario B SQL query and returns nav taxonomy nodes.
-   * 
-   * @returns {Promise<Array<Object>>}
-   */
-  const runNavTaxonomy = useCallback(async () => {
-    if (!connection || !tableName) {
-      setError('Cannot query: no data has been ingested yet.');
-      return [];
-    }
-
-    try {
-      setIsQuerying(true);
-      setError(null);
-      console.log('useDatabase: running nav taxonomy query...');
-
-      const rows = await queryNavTaxonomy(connection, tableName);
-      console.log(`useDatabase: ✅ nav taxonomy query returned ${rows.length} nodes.`);
-      return rows;
-
-    } catch (err) {
-      console.error('useDatabase: nav taxonomy query failed —', err);
-      setError(`Nav taxonomy query failed: ${err.message}`);
+      console.error('useDatabase: discovery failed —', err);
+      setError(`Query failed: ${err.message}`);
       return [];
     } finally {
       setIsQuerying(false);
@@ -213,7 +204,6 @@ export function useDatabase() {
 
     // Functions
     ingest,
-    runOrgChart,
-    runNavTaxonomy,
+    runDiscovery,
   };
 }

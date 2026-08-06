@@ -1,8 +1,7 @@
 /**
  * Shapes passed between the Phase 3 layout files.
  *
- * Input comes from scenarios.js (or fixtures.js while testing) as a flat
- * array of rows. Output is pure geometry — no React, no DOM.
+ * Input comes from scenarios.js (or fixtures.js while testing) as a flat array of rows. Output is pure geometry — no React, no DOM.
  */
 
 
@@ -35,8 +34,7 @@
 
 
 /**
- * Everything buildTree returns. The maps exist so focus-state lookups are
- * O(1) instead of walking the tree on every hover.
+ * Everything buildTree returns. The maps exist so focus-state lookups are O(1) instead of walking the tree on every hover.
  *
  * @typedef {Object} TreeResult
  * @property {TreeNode} root

@@ -1,242 +1,232 @@
-import { useState, useEffect } from 'react'
-import './App.css'
-import FileUploader from './demo/upload/FileUploader'
-import { useDatabase } from './demo/db/useDatabase'
+import { useEffect, useState } from 'react';
 
+import './App.css';
+
+import FileUploader from './demo/upload/FileUploader';
+import { useDatabase } from './demo/db/useDatabase';
+import TreeView from './component/render/TreeView';
+
+
+
+
+/**
+ * The wired app, discovery edition.
+ *
+ * Datasets are discovered from the uploaded table — one tree panel per
+ * distinct "dataset" value, or a single panel when the column is absent.
+ * Nothing about orgchart / navtaxonomy is hardcoded anywhere.
+ *
+ * Stage flow:
+ *   boot      DuckDB still initializing
+ *   awaiting  ready, no file yet
+ *   ingesting rows going into DuckDB
+ *   querying  discovery + queries running
+ *   showing   trees on screen
+ *   empty     ingested, but discovery found no rows
+ *   error     any stage failed
+ */
 function App() {
-  // Parsed rows from FileUploader
-  const [parsedData, setParsedData] = useState(null)
-  const [parseError, setParseError] = useState(null)
 
-  // Results from both scenario queries
-  const [orgChartData, setOrgChartData] = useState(null)
-  const [navTaxonomyData, setNavTaxonomyData] = useState(null)
 
-  // Pull everything we need from the database hook
-  const {
-    isReady,
-    isIngesting,
-    isQuerying,
-    error: dbError,
-    dbInfo,
-    hasData,
-    ingest,
-    runOrgChart,
-    runNavTaxonomy,
-  } = useDatabase()
+  const database = useDatabase();
 
-  // -------------------------------------------------------
-  // Step A: when FileUploader gives us parsed rows,
-  // immediately ingest them into DuckDB
-  // -------------------------------------------------------
-  function handleDataParsed(rows) {
-    setParseError(null)
-    setParsedData(rows)
-    setOrgChartData(null)
-    setNavTaxonomyData(null)
-    console.log('App: parsed rows received —', rows.length, 'rows')
+  const [uploadError, setUploadError] = useState(null);
 
-    if (!isReady) {
-      console.warn('App: DuckDB not ready yet — cannot ingest.')
-      return
+  // [{ name, rows }] from discovery — one entry per tree.
+  const [trees, setTrees] = useState(null);
+
+  const [ingestGen, setIngestGen] = useState(0);
+
+  const [events, setEvents] = useState([]);
+
+  const [showConsole, setShowConsole] = useState(true);
+
+  // 'split' or a dataset name.
+  const [view, setView] = useState('split');
+
+
+  async function handleDataParsed(rows) {
+    setUploadError(null);
+    setTrees(null);
+    setView('split');
+
+    await database.ingest(rows);
+
+    // Signals the effect below. Queries can't be called directly here:
+    // runDiscovery still closes over the pre-ingest tableName until the next
+    // render, so the first upload would fail with "no data ingested yet".
+    setIngestGen((generation) => generation + 1);
+  }
+
+  function handleUploadError(message) {
+    setUploadError(message);
+  }
+
+
+  useEffect(() => {
+
+    if (ingestGen === 0) 
+    {
+      return;
     }
 
-    ingest(rows)
-  }
+    (async () => {
+      const found = await database.runDiscovery();
+      setTrees(found);
+    })();
 
-  function handleParseError(errorMessage) {
-    setParsedData(null)
-    setParseError(errorMessage)
-    console.error('App: parse error —', errorMessage)
-  }
+  }, [ingestGen]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  // -------------------------------------------------------
-  // Step B: once ingestion finishes (hasData becomes true),
-  // automatically run both scenario queries
-  // -------------------------------------------------------
-useEffect(() => {
-  if (!hasData || isIngesting) return
 
-  // Don't run queries if no rows were parsed
-  if (!parsedData || parsedData.length === 0) return
+  const logEvent = (source, text) => {
+    setEvents((previous) => [
+      { time: new Date().toLocaleTimeString(), source, text },
+      ...previous.slice(0, 49),
+    ]);
+  };
 
-  async function runBothQueries() {
-    console.log('App: running both scenario queries...')
 
-    const [orgChart, navTaxonomy] = await Promise.all([
-      runOrgChart(),
-      runNavTaxonomy(),
-    ])
+  const renderTooltip = (node) => (
+    <div>
+      <strong>{node.label}</strong>
+      {node.data.metadata ? <div>{node.data.metadata}</div> : null}
+    </div>
+  );
 
-    setOrgChartData(orgChart)
-    setNavTaxonomyData(navTaxonomy)
 
-    console.log('App: ✅ Scenario A (org chart) —', orgChart.length, 'nodes')
-    console.log('App: first org chart node —', orgChart[0])
-    console.log('App: root node (parentId should be null) —',
-      orgChart.find(n => n.parentId === null || n.parentId === 'null')
-    )
+  const nonEmptyTrees = (trees ?? []).filter((t) => t.rows.length > 0);
 
-    console.log('App: ✅ Scenario B (nav taxonomy) —', navTaxonomy.length, 'nodes')
-    console.log('App: first nav taxonomy node —', navTaxonomy[0])
-    console.log('App: root node (parentId should be null) —',
-      navTaxonomy.find(n => n.parentId === null || n.parentId === 'null')
-    )
-  }
+  const visibleTrees =
+    view === 'split'
+      ? nonEmptyTrees
+      : nonEmptyTrees.filter((t) => t.name === view);
 
-  runBothQueries()
-}, [hasData, isIngesting, parsedData])
 
-  // -------------------------------------------------------
-  // Render
-  // -------------------------------------------------------
+  const stage =
+    !database.isReady && !database.error   ? 'boot'
+    : database.error || uploadError        ? 'error'
+    : database.isIngesting                 ? 'ingesting'
+    : database.isQuerying                  ? 'querying'
+    : nonEmptyTrees.length > 0             ? 'showing'
+    : trees                                ? 'empty'
+    : 'awaiting';
+
+
   return (
-    <div className="app-container">
-      <h1>Tree Component Assignment</h1>
-      <p>Phase 2 — DuckDB Pipeline Test</p>
+    <div className="app">
 
-      {/* DB status bar */}
-      <div className={`db-status db-status--${isReady ? 'ready' : 'loading'}`}>
-        {isReady
-          ? `✅ DuckDB ready${dbInfo ? ` — version ${dbInfo.version}` : ''}`
-          : '⏳ Initializing DuckDB...'}
-      </div>
+      <header className="app__header">
+        <h1 className="app__title">Tree Component — Demo App</h1>
 
-      {/* File uploader — disabled until DB is ready */}
-      <div style={{ marginTop: '1.5rem', opacity: isReady ? 1 : 0.4,
-        pointerEvents: isReady ? 'auto' : 'none' }}>
         <FileUploader
           onDataParsed={handleDataParsed}
-          onError={handleParseError}
+          onError={handleUploadError}
         />
-      </div>
 
-      {/* Parse error */}
-      {parseError && (
-        <div className="parse-error">
-          <strong>Parse Error:</strong> {parseError}
-        </div>
-      )}
-
-      {/* DB error */}
-      {dbError && (
-        <div className="parse-error">
-          <strong>Database Error:</strong> {dbError}
-        </div>
-      )}
-
-      {/* Ingestion status */}
-      {isIngesting && (
-        <div className="db-status db-status--loading" style={{ marginTop: '1rem' }}>
-          ⏳ Ingesting data into DuckDB...
-        </div>
-      )}
-
-      {/* Query status */}
-      {isQuerying && (
-        <div className="db-status db-status--loading" style={{ marginTop: '1rem' }}>
-          ⏳ Running scenario queries...
-        </div>
-      )}
-
-      {/* Results panels — shown side by side once queries complete */}
-      {orgChartData && navTaxonomyData && (
-        <div className="results-container">
-
-          {/* Scenario A */}
-          <div className="result-panel">
-            <h2>Scenario A — Org Chart</h2>
-            <p>
-              <strong>Nodes:</strong> {orgChartData.length} &nbsp;|&nbsp;
-              <strong>Root:</strong>{' '}
-              {orgChartData.find(
-                n => n.parentId === null || n.parentId === 'null'
-              )?.name ?? 'not found'}
-            </p>
-            <div className="data-preview__table-wrapper">
-              <table className="data-preview__table">
-                <thead>
-                  <tr>
-                    <th>id</th>
-                    <th>name</th>
-                    <th>parentId</th>
-                    <th>metadata</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orgChartData.slice(0, 5).map((row, i) => (
-                    <tr key={i}>
-                      <td>{row.id}</td>
-                      <td>{row.name}</td>
-                      <td>
-                        {row.parentId === null || row.parentId === 'null'
-                          ? <span className="null-badge">null</span>
-                          : row.parentId}
-                      </td>
-                      <td>{row.metadata}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="table-note">Showing first 5 of {orgChartData.length} rows.
-              Check console for full output.</p>
+        {stage === 'showing' && nonEmptyTrees.length > 1 && (
+          <div className="app__view-toggle">
+            <button onClick={() => setView('split')} disabled={view === 'split'}>
+              All
+            </button>
+            {nonEmptyTrees.map((tree) => (
+              <button
+                key={tree.name}
+                onClick={() => setView(tree.name)}
+                disabled={view === tree.name}
+              >
+                {tree.name}
+              </button>
+            ))}
           </div>
+        )}
 
-          {/* Scenario B */}
-          <div className="result-panel">
-            <h2>Scenario B — Nav Taxonomy</h2>
-            <p>
-              <strong>Nodes:</strong> {navTaxonomyData.length} &nbsp;|&nbsp;
-              <strong>Root:</strong>{' '}
-              {navTaxonomyData.find(
-                n => n.parentId === null || n.parentId === 'null'
-              )?.name ?? 'not found'}
-            </p>
-            <div className="data-preview__table-wrapper">
-              <table className="data-preview__table">
-                <thead>
-                  <tr>
-                    <th>id</th>
-                    <th>name</th>
-                    <th>parentId</th>
-                    <th>metadata</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {navTaxonomyData.slice(0, 5).map((row, i) => (
-                    <tr key={i}>
-                      <td>{row.id}</td>
-                      <td>{row.name}</td>
-                      <td>
-                        {row.parentId === null || row.parentId === 'null'
-                          ? <span className="null-badge">null</span>
-                          : row.parentId}
-                      </td>
-                      <td>{row.metadata}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="table-note">Showing first 5 of {navTaxonomyData.length} rows.
-              Check console for full output.</p>
-          </div>
+        <span className="app__stage">stage: {stage}</span>
+      </header>
 
-        </div>
-      )}
 
-      {/* Parsed data summary */}
-      {parsedData && (
-        <div className="data-preview" style={{ marginTop: '1.5rem' }}>
-          <p style={{ fontSize: '0.85rem', color: '#666' }}>
-            Raw parse: {parsedData.length} total rows ingested from file.
+      <main className="app__main">
+
+        {stage === 'boot' && (
+          <p className="app__notice">Starting the in-browser database…</p>
+        )}
+
+        {stage === 'ingesting' && (
+          <p className="app__notice">Loading rows into the database…</p>
+        )}
+
+        {stage === 'querying' && (
+          <p className="app__notice">Discovering datasets and running queries…</p>
+        )}
+
+        {stage === 'awaiting' && (
+          <p className="app__notice">
+            Upload a CSV or Excel file to begin.
           </p>
-        </div>
-      )}
+        )}
+
+        {stage === 'empty' && (
+          <p className="app__notice app__notice--error">
+            The file was ingested, but no tree rows came back.
+            Check the file has id, name and parentId columns with data in them.
+          </p>
+        )}
+
+        {stage === 'error' && (
+          <p className="app__notice app__notice--error">
+            {database.error ?? uploadError}
+          </p>
+        )}
+
+        {stage === 'showing' && (
+          <div className="app__trees">
+
+            {visibleTrees.map((tree) => (
+              <section className="app__panel" key={tree.name}>
+                <h3 className="app__panel-title">{tree.name}</h3>
+                <div className="app__panel-body">
+                  <TreeView
+                    data={tree.rows}
+                    renderTooltip={renderTooltip}
+                    onNodeFocus={(node) => node && logEvent(tree.name, `Node '${node.label}' focused. ${node.childIds.length} children.`)}
+                    onNodeClick={(node) => logEvent(tree.name, `Node '${node.label}' clicked. Value: ${node.data.metadata ?? '—'}`)}
+                    onBackgroundClick={() => logEvent(tree.name, 'Background clicked.')}
+                  />
+                </div>
+              </section>
+            ))}
+
+          </div>
+        )}
+
+        {stage === 'showing' && showConsole && (
+          <div className="app__console">
+            <div className="app__console-head">
+              <span>Events</span>
+              <div className="app__console-actions">
+                <button onClick={() => setEvents([])}>Clear</button>
+                <button onClick={() => setShowConsole(false)}>Hide</button>
+              </div>
+            </div>
+            <div className="app__console-body">
+              {events.length === 0
+                ? <span className="app__console-hint">Interact with a tree — events appear here.</span>
+                : events.map((e, i) => (
+                    <div key={i}>[{e.time}] [{e.source}] {e.text}</div>
+                  ))}
+            </div>
+          </div>
+        )}
+
+        {stage === 'showing' && !showConsole && (
+          <button className="app__console-show" onClick={() => setShowConsole(true)}>
+            Show events
+          </button>
+        )}
+
+      </main>
 
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

@@ -74,17 +74,23 @@ export async function ingestData(connection, tableName, rows) {
 
             const batch = rows.slice(i, i + BATCH_SIZE);
 
+            const originalKeys = Object.keys(rows[0]);
+
             const valuesClauses = batch.map((row) => {
             
-                const values = columns.map((col) => {
-
-                    const originalCol = Object.keys(rows[0])[columns.indexOf(col)];
+                const values = originalKeys.map((originalCol) => {
 
 
-                    const val = row[originalCol] ?? '';
+                    const val = row[originalCol];
 
-                    
-                    const escaped = String(val).replace(/'/g, "''");
+                    // Real SQL NULL for missing/empty cells — this is what makes
+                    // COALESCE and NULLIF in the scenario queries actually work.
+                    if (val === null || val === undefined || String(val).trim() === '') 
+                    {
+                        return 'NULL';
+                    }
+
+                    const escaped = String(val).trim().replace(/'/g, "''");
 
                     return `'${escaped}'`;
 

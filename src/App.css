@@ -1,54 +1,186 @@
-.db-status {
-  padding: 0.5rem 1rem;
+/* Phase 4 shell. TreeView brings its own styles in TreeView.css. */
+
+:root {
+  --app-bg: #f6f7f9;
+  --app-text: #2b3440;
+  --app-border: #dde2e8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+
+.app {
+  height: 100%;
+}
+
+
+/* -- Bits the scratch demo page uses ------------------------------------- */
+
+.app select,
+.app button {
+  padding: 6px 10px;
+  border: 1px solid var(--app-border);
   border-radius: 6px;
-  font-size: 0.875rem;
-  max-width: 480px;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
 }
 
-.db-status--ready {
-  background-color: #e8f5e9;
-  color: #2e7d32;
+.app button:hover,
+.app select:hover {
+  border-color: #b8c0cc;
 }
 
-.db-status--loading {
-  background-color: #fff8e1;
-  color: #7c5e00;
+/* -- Phase 5 shell ------------------------------------------------------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
 }
 
-.results-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  margin-top: 1.5rem;
+.app__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.result-panel {
-  border: 1px solid #e0e0e0;
+.app__title {
+  margin: 0;
+  font-size: 18px;
+}
+
+.app__stage {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.6;
+  font-family: ui-monospace, monospace;
+}
+
+.app__main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app__notice {
+  margin: auto;
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.app__notice--error {
+  color: #b4232a;
+  opacity: 1;
+  max-width: 60ch;
+  text-align: center;
+}
+
+.app__trees {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
+}
+
+.app__panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
-  padding: 1rem;
+  overflow: hidden;
+  background: #ffffff;
 }
 
-.result-panel h2 {
-  font-size: 1rem;
-  margin: 0 0 0.5rem 0;
+.app__panel-title {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #eef1f5;
 }
 
-.result-panel p {
-  font-size: 0.85rem;
-  margin: 0 0 0.75rem 0;
+.app__panel-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
 }
 
-.null-badge {
-  font-family: monospace;
-  font-size: 0.8rem;
-  background: #fce4ec;
-  color: #c62828;
-  padding: 1px 6px;
-  border-radius: 4px;
+.app__console {
+  height: 130px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1d2430;
+  color: #c7e0c9;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
 }
 
-.table-note {
-  font-size: 0.75rem;
-  color: #999;
-  margin-top: 0.5rem;
+.app__console-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 10px;
+  background: #141a24;
+  color: #8fa3b8;
+}
+
+.app__console-head button {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.app__console-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 10px;
+}
+
+.app__console-hint {
+  opacity: 0.5;
+}
+
+.app__console-show {
+  align-self: flex-end;
+  font-size: 12px;
+}
+
+.app__view-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.app__view-toggle button:disabled {
+  background: #e8ecf1;
+  cursor: default;
+}
+
+.app__console-actions {
+  display: flex;
+  gap: 4px;
 }

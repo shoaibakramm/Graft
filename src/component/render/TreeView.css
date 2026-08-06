@@ -1,0 +1,196 @@
+/* Step 4 — static render, sized to its parent. Focus states arrive in step 8. */
+
+.tree-view {
+  position: relative;
+
+  /* The component fills whatever it is given. Width and height at 100% with
+     min-* at 0 lets it shrink inside a flex or grid parent instead of forcing
+     the parent to grow — without these, a flex child refuses to go below its
+     content size and the container can never shrink back down. */
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+
+  overflow: hidden;
+}
+
+.tree-view__svg {
+  display: block;
+}
+
+
+/* -- Edges --------------------------------------------------------------- */
+
+.tree-view__edge {
+  stroke: #b8c0cc;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+/* -- Nodes --------------------------------------------------------------- */
+
+.tree-view__node-box {
+  fill: #ffffff;
+  stroke: #c9d1dc;
+  stroke-width: 1.5;
+}
+
+.tree-view__node-label {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 13px;
+  fill: #2b3440;
+  pointer-events: none;
+  user-select: none;
+}
+
+
+/* -- Error state --------------------------------------------------------- */
+
+.tree-view__error {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: 100%;
+  padding: 32px;
+
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-align: center;
+}
+
+.tree-view__error-title {
+  margin: 0;
+  font-weight: 600;
+  color: #b4232a;
+}
+
+.tree-view__error-detail {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #5c6673;
+}
+
+/* -- Zoom (step 5) ------------------------------------------------------- */
+
+.tree-view__svg {
+  cursor: grab;
+}
+
+.tree-view__svg:active {
+  cursor: grabbing;
+}
+
+.tree-view__controls {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+
+  background: #ffffff;
+  border: 1px solid #dde2e8;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(20, 28, 40, 0.08);
+}
+
+.tree-view__control-button {
+  width: 30px;
+  height: 30px;
+
+  display: grid;
+  place-items: center;
+
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+
+  font-size: 16px;
+  line-height: 1;
+  color: #2b3440;
+  cursor: pointer;
+}
+
+.tree-view__control-button:hover {
+  background: #eef1f5;
+}
+
+/* -- Focus states (step 8) ----------------------------------------------- */
+
+/* Every node and edge always carries exactly one state class. The transition
+   lives on the shapes so dim and undim fade instead of snapping — this is
+   most of what makes focus mode feel deliberate rather than flickery. */
+
+.tree-view__node-box,
+.tree-view__node-label,
+.tree-view__edge {
+  transition: opacity 160ms ease, stroke 160ms ease, fill 160ms ease,
+              stroke-width 160ms ease;
+}
+
+
+/* idle: the resting look, exactly as before. */
+.tree-view--idle {}
+
+
+/* active: the hovered node and the edges to its children. */
+.tree-view__node.tree-view--active .tree-view__node-box {
+  stroke: #2f6fed;
+  stroke-width: 2.5;
+  fill: #f2f7ff;
+}
+
+.tree-view__node.tree-view--active .tree-view__node-label {
+  fill: #16324f;
+  font-weight: 600;
+}
+
+.tree-view__edge.tree-view--active {
+  stroke: #2f6fed;
+  stroke-width: 2.5;
+}
+
+
+/* child-of-active: picked out, but quieter than the active node itself. */
+.tree-view__node.tree-view--child-of-active .tree-view__node-box {
+  stroke: #7fa6f2;
+  stroke-width: 2;
+}
+
+
+/* dimmed: pushed to the background. Opacity on the group, so box, label and
+   edge fade as one. */
+.tree-view__node.tree-view--dimmed,
+.tree-view__edge.tree-view--dimmed {
+  opacity: 0.25;
+}
+
+/* -- Tooltip (step 9) ---------------------------------------------------- */
+
+.tree-view__tooltip {
+  z-index: 10;
+
+  max-width: 280px;
+  padding: 8px 12px;
+
+  background: #1d2430;
+  color: #f2f5f9;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(10, 16, 26, 0.25);
+
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 12.5px;
+  line-height: 1.45;
+
+  pointer-events: none;   /* the tooltip must never steal the hover it rides on */
+}

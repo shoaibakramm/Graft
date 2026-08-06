@@ -1,0 +1,158 @@
+# @antv/hierarchy (compactBox) & @xyflow/react
+
+## 1. `@antv/hierarchy` — compactBox Layout
+
+### What it replaces
+- This takes over the job `d3.stratify()` + `d3.tree()` used to do: turning hierarchical data into positioned (x/y) nodes.
+- Unlike `d3.tree()` (Reingold–Tilford, tidy in one direction), `compactBox` is a **compact box tidy layout** — it's tidy in *both* horizontal and vertical directions, and considers the bounding box of each node during layout to keep the tree compact and clear.
+
+### Install / Import
+
+```js
+npm install @antv/hierarchy
+```
+
+```js
+import { compactBox } from '@antv/hierarchy';
+// or
+import * as Hierarchy from '@antv/hierarchy';
+```
+
+### Input shape
+- Expects an **already-nested** tree object (not a flat array with `parentId` — no separate "stratify" step needed here since the nesting is expected upfront):
+
+```js
+const root = {
+  isRoot: true,
+  id: 'Root',
+  children: [
+    { id: 'SubTreeNode1', children: [
+        { id: 'SubTreeNode1.1' },
+        { id: 'SubTreeNode1.2' }
+      ]
+    },
+    { id: 'SubTreeNode2' }
+  ]
+};
+```
+
+### Calling the layout
+
+```js
+const rootNode = compactBox(root, {
+  direction: 'H', // H / V / LR / RL / TB / BT
+  getId(d) { return d.id; },
+  getHeight(d) { return d.isRoot ? NODE_SIZE * 2 : NODE_SIZE; },
+  getWidth(d) { return d.isRoot ? ctx.measureText(d.id).width * 2 + PEM * 1.6 : ctx.measureText(d.id).width + PEM * 1.6; },
+  getHGap(d) { return d.isRoot ? PEM * 2 : PEM; },
+  getVGap(d) { return d.isRoot ? PEM * 2 : PEM; },
+  getSubTreeSep(d) {
+    if (!d.children || !d.children.length) return 0;
+    return PEM;
+  }
+});
+```
+
+### Config options
+- `direction` — layout direction: `H` (root in the middle, horizontal symmetric layout), `V`, `LR`, `RL`, `TB`, `BT`.
+  - For `H` direction, you can use `getSide` to specify the left/right logic for each node — whether the node goes on the left or right of the root. If not set, the algorithm auto-assigns left/right.
+- `getId(d)` — accessor for a node's id.
+- `getWidth(d)` / `getHeight(d)` — accessors returning each node's box dimensions (you compute these yourself, e.g. via canvas text measurement).
+- `getHGap(d)` / `getVGap(d)` — horizontal/vertical spacing accessors per node.
+- `getSubTreeSep(d)` — separation between subtrees; returning `0` for leaf nodes (no children) is standard.
+- `radial` — whether to use a radial layout. If `radial: true`, it's recommended to set `direction` to `'LR'` or `'RL'`.
+
+### Notes
+- It's a well-established, MIT-licensed library — evolved from the classic Reingold–Tilford tidy layout algorithm, adapted to be compact in both dimensions.
+- Common use cases: decision trees (visually showing each decision path), knowledge graphs (hierarchical relationships in limited space).
+
+---
+
+## 2. `@xyflow/react` — Rendering Nodes & Edges
+
+### What it replaces
+- This takes over rendering the nodes and the SVG edges between them — the part that used to be manual `<g transform>` / `<path>` wrangling with D3.
+- Under the hood, React Flow itself depends on `d3-zoom` for zoom, pan, and drag interactions with the canvas — so the pan/zoom concepts from earlier notes are still relevant, just handled internally by the library instead of wired up by hand.
+
+### Install / Import
+
+```js
+npm install @xyflow/react
+```
+
+```js
+import { ReactFlow } from '@xyflow/react';
+```
+
+### Core component
+
+```jsx
+import { ReactFlow } from '@xyflow/react'
+
+export default function Flow() {
+  return <ReactFlow nodes={...} edges={...} onNodesChange={...} ... />
+}
+```
+
+- Takes `nodes` and `edges` arrays as its main data props, plus many optional props.
+- **Warning**: event handlers passed as props should be defined outside the component or wrapped in `useCallback` — otherwise React Flow can enter an infinite re-render loop.
+
+### Built-in edge types
+- Four built-in edge types: `"default"` (bezier), `"straight"`, `"step"`, `"smoothstep"`.
+- If you don't set the `type` property on an edge, it falls back to `"default"` (bezier curve).
+- `"step"` / `"smoothstep"` produce **orthogonal (right-angled)** connectors — directly relevant if the assignment spec calls for orthogonal edge routing rather than curves.
+
+### Custom edges
+- You can build a custom edge component using the `BaseEdge` helper component plus one of the path-generator utilities:
+  - `getStraightPath()`
+  - `getSmoothStepPath()` — for step/orthogonal-style paths
+  - `getBezierPath()` / `getSimpleBezierPath()`
+
+```jsx
+import { BaseEdge, type EdgeProps, type Edge, getSmoothStepPath } from '@xyflow/react';
+
+type CustomEdge = Edge<{ value: number }, 'custom'>;
+
+export default function CustomEdge({
+  id, sourceX, sourceY, sourcePosition,
+  targetX, targetY, targetPosition,
+}: EdgeProps<CustomEdge>) {
+  const [edgePath] = getSmoothStepPath({
+    sourceX, sourceY, sourcePosition,
+    targetX, targetY, targetPosition,
+  });
+  return <BaseEdge id={id} path={edgePath} />;
+}
+```
+
+- `getSmoothStepPath()` returns a tuple: `[path, labelX, labelY, offsetX, offsetY]`.
+  - `path` — the SVG path string to render.
+  - `labelX, labelY` — center position of the path (useful for placing a label).
+  - `offsetX, offsetY` — offset between the source handle and the label position.
+  - To get sharp corners instead of rounded ones (i.e. a true "step" look), pass `borderRadius: 0` into `getSmoothStepPath()`.
+
+### Custom nodes & Handles
+- Custom nodes use the `Handle` component to define connection points:
+
+```jsx
+import { Position, Handle } from '@xyflow/react';
+
+export function CustomNode() {
+  return (
+    <div className="custom-node">
+      <div>Custom Node Content</div>
+      <Handle type="source" position={Position.Top} />
+      <Handle type="target" position={Position.Bottom} />
+    </div>
+  );
+}
+```
+
+- If a custom node needs multiple source/target handles, each handle needs a unique `id` so React Flow can tell them apart when connecting edges.
+
+### Useful hooks
+- `useEdges()` — returns the current array of edges; re-renders the component whenever any edge changes.
+- Relying on `useEdges()` (or similar hooks) unnecessarily can cause performance issues, since the component re-renders on every edge change — prefer more targeted hooks/selectors where possible.
+
+### Registering custom types
+- Custom node/edge components get mapped to a `type` string via `nodeTypes` / `edgeTypes` objects passed to `ReactFlow`, so a node/edge's `type` property determines which custom component renders it.

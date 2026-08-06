@@ -93,7 +93,11 @@ export function parseCSV(file) {
             return cleanRow;
           });
     
-        resolve(normalized);
+        // A trailing ",,," line survives skipEmptyLines and would read as a
+        // phantom row with an empty id. Matches excelParser's behaviour.
+        const filtered = normalized.filter((row) => Object.values(row).some((val) => val !== ''));
+
+        resolve(filtered);
       
       },
 

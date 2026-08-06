@@ -1,0 +1,25 @@
+id,name,parentId,department,level,dataset,metadata
+1,CEO,,Executive,1,orgchart,Reports to Board
+2,CTO,1,Technology,2,orgchart,15 years experience
+3,CFO,1,Finance,2,orgchart,CPA certified
+4,CMO,1,Marketing,2,orgchart,Former agency lead
+5,VP Engineering,2,Technology,3,orgchart,Manages 4 teams
+6,VP Data,2,Technology,3,orgchart,PhD in ML
+7,FP&A Lead,3,Finance,3,orgchart,MBA Harvard
+8,Brand Lead,4,Marketing,3,orgchart,10 years in brand
+9,Frontend Lead,5,Technology,4,orgchart,React specialist
+10,Backend Lead,5,Technology,4,orgchart,Distributed systems
+11,Home,,Navigation,1,navtaxonomy,Root page
+12,Products,11,Navigation,2,navtaxonomy,Main catalog
+13,About,11,Navigation,2,navtaxonomy,Company info
+14,Blog,11,Navigation,2,navtaxonomy,Content hub
+15,Electronics,12,Navigation,3,navtaxonomy,Category page
+16,Clothing,12,Navigation,3,navtaxonomy,Category page
+17,Team,13,Navigation,3,navtaxonomy,Meet the team
+18,Mission,13,Navigation,3,navtaxonomy,Our mission
+19,Tech Posts,14,Navigation,3,navtaxonomy,Tech articles
+20,Design Posts,14,Navigation,3,navtaxonomy,Design articles
+21,Laptops,15,Navigation,4,navtaxonomy,Sub-category
+22,Phones,15,Navigation,4,navtaxonomy,Sub-category
+23,Shirts,16,Navigation,4,navtaxonomy,Sub-category
+24,Pants,16,Navigation,4,navtaxonomy,Sub-category
