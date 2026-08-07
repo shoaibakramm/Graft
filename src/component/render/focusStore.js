@@ -112,9 +112,7 @@ export function useFocusClass(store, nodeId) {
 
 
 /**
- * Same idea for an edge. An edge is active when its source is the focused (or
- * pinned) node — those are the edges connecting the active node to its
- * children, which the brief says to highlight.
+ * Same idea for an edge. An edge is active when its source is the focused (or pinned) node — those are the edges connecting the active node to its children, which the brief says to highlight.
  *
  * @param {import('zustand').StoreApi} store
  * @param {string} sourceId

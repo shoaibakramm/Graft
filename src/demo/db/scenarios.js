@@ -3,11 +3,6 @@ import { queryDB } from './queryDB';
 
 
 
-/**
- * Generic scenario queries. Nothing here knows what "orgchart" means — dataset values are DISCOVERED from the uploaded table, and one tree is produced per
- * value found. A table with no "dataset" column is treated as one whole tree.
- * The only column-name assumptions left are id / name / parentId (which the tree needs) and the optional dataset / level / department / metadata conventions this demo app documents for its input files.
- */
 
 
 /**
@@ -19,10 +14,13 @@ import { queryDB } from './queryDB';
  */
 export async function listColumns(connection, tableName) {
 
+
   const rows = await queryDB(connection, `DESCRIBE "${tableName}"`);
+
 
   // DESCRIBE returns one row per column; the name lives in column_name.
   return rows.map((r) => r.column_name);
+
 }
 
 
@@ -35,6 +33,7 @@ export async function listColumns(connection, tableName) {
  */
 export async function listDatasets(connection, tableName) {
 
+
   const sql = `
     SELECT DISTINCT TRIM(dataset) AS dataset
     FROM "${tableName}"
@@ -42,24 +41,23 @@ export async function listDatasets(connection, tableName) {
     ORDER BY dataset ASC
   `;
 
+
   const rows = await queryDB(connection, sql);
 
+
   return rows.map((r) => r.dataset);
+
 }
 
 
 
 
 /**
- * Shared SELECT for tree rows. metadata / level / department are optional
- * conventions — columns the table actually has decide what goes in.
+ * Shared SELECT for tree rows. metadata / level / department are optional conventions — columns the table actually has decide what goes in.
  *
- * - TRY_CAST instead of CAST: a junk value in "level" sorts last instead of
- *   killing the whole query.
- * - CONCAT_WS skips NULLs entirely, so a row missing department or metadata
- *   gets clean output instead of a dangling " | ".
- * - ORDER BY is load-bearing: buildTree preserves row order into sibling
- *   order, so this clause decides left-to-right placement in the diagram.
+ * - TRY_CAST instead of CAST: a junk value in "level" sorts last instead of killing the whole query.
+ * - CONCAT_WS skips NULLs entirely, so a row missing department or metadata gets clean output instead of a dangling " | ".
+ * - ORDER BY is load-bearing: buildTree preserves row order into sibling order, so this clause decides left-to-right placement in the diagram.
  */
 function treeSQL(tableName, columns, whereClause) {
 
@@ -98,7 +96,9 @@ function treeSQL(tableName, columns, whereClause) {
  */
 export async function queryDataset(connection, tableName, columns, datasetValue) {
 
+
   const escaped = String(datasetValue).replace(/'/g, "''");
+
 
   const sql = treeSQL(
     tableName,
@@ -108,7 +108,9 @@ export async function queryDataset(connection, tableName, columns, datasetValue)
 
   const rows = await queryDB(connection, sql);
 
+
   warnOnRoots(rows, `queryDataset(${datasetValue})`);
+
 
   return rows;
 }
@@ -121,9 +123,13 @@ export async function queryDataset(connection, tableName, columns, datasetValue)
  */
 export async function queryWholeTable(connection, tableName, columns) {
 
+
   const rows = await queryDB(connection, treeSQL(tableName, columns, ''));
 
+
+
   warnOnRoots(rows, 'queryWholeTable');
+
 
   return rows;
 }
@@ -133,6 +139,7 @@ export async function queryWholeTable(connection, tableName, columns) {
 
 function warnOnRoots(rows, label) {
 
+
   if (rows.length === 0) 
   {
     console.warn(`${label}: no rows returned.`);
@@ -141,10 +148,14 @@ function warnOnRoots(rows, label) {
 
   const roots = rows.filter((r) => r.parentId === null);
 
+
+
   if (roots.length === 0) 
   {
     console.warn(`${label}: no root node found (no row with empty parentId).`);
   }
+
+
 
   if (roots.length > 1) 
   {
