@@ -1,4 +1,4 @@
-## Set up
+## Setting up GRAFT
 
 
 - git clone <repo-url>
@@ -10,7 +10,7 @@
 - Then open the URL printed in the terminal (usually http://localhost:5173).
 
 
-## Trying it
+## Trying GRAFT
 
 - Upload a CSV or Excel file. The app detects which format it is and renders the tree. Three formats are supported:
 
