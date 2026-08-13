@@ -2,7 +2,7 @@
 
 
 - git clone <https://github.com/shoaibakramm/Graft.git>
-- cd tree-component-assignment
+- cd Graft
 - npm install
 - npm run dev
 
