@@ -1,4 +1,6 @@
 path,label,type,owner
 /company,Amara Osei,root,Executive
 /company/tech,Ravi Chandra,division,Technology
+/company/ops,Marcus Webb,division,Operations
 /company/tech/eng,Priya Nair,team,Technology
+/company/tech/infra,Diego Marquez,team,Technology
