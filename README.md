@@ -2,7 +2,7 @@
 
 
 - git clone <https://github.com/shoaibakramm/Graft.git>
-- cd Graft
+- cd Graft (Your main directory for the cloned application)
 - npm install
 - npm run dev
 
