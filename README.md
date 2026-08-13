@@ -1,7 +1,7 @@
 ## Setting up GRAFT
 
 
-- git clone <repo-url>
+- git clone <https://github.com/shoaibakramm/Graft.git>
 - cd tree-component-assignment
 - npm install
 - npm run dev
