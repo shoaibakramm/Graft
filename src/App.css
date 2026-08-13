@@ -184,3 +184,11 @@ body {
   display: flex;
   gap: 4px;
 }
+
+.app__format {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #eef1f5;
+  color: #46525f;
+}

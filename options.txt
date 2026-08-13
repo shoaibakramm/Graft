@@ -1,0 +1,50 @@
+OPTION 1 : Client: an HR system that exports each manager with their direct reports.
+
+
+node_id,            title,               child_ids,                dept,            notes
+n1,                 Amara Osei           ,"n2,n3",               Executive,         Chief Executive Officer
+n2,                 Ravi Chandra         ,"n4,n5",               Technology,        Chief Technology Officer
+n3,                 Lena Fischer          ,n6,                   Finance,           Chief Financial Officer
+n4,                 Priya Nair            ,  ,                   Technology,        VP Engineering
+n5,                 Diego Marquez         ,  ,                   Technology,        VP Infrastructure
+n6,                 Ollie Brennan         ,  ,                   Finance,           Controller
+
+
+The relationship points downward. There's no parentId anywhere — a node names its children instead. Column names differ too (node_id, title, child_ids).
+
+
+----------------------------------------------------------------------------------------------
+
+
+OPTION 2 : Client: a CMS or directory export where hierarchy lives in the path string.
+
+
+path,                           label,                    type,           owner
+/company,                       Global HQ,                root,         Amara Osei
+/company/tech,                  Technology,              division,      Ravi Chandra
+/company/tech/eng,              Engineering,              team,         Priya Nair
+/company/tech/infra,            Infrastructure,           team,         Diego Marquez
+/company/finance,               Finance,                 division,      Lena Fischer
+/company/finance/control,       Controlling,              team,         Ollie Brennan
+
+
+There is no id column and no parent column. The hierarchy is encoded entirely in a string — a node's parent is its own path minus the last segment.
+
+
+----------------------------------------------------------------------------------------------
+
+
+OPTION 3 : Client: a BI or pivot-table export. Each row is a complete branch, not a node.
+
+
+Level 1,        Level 2,            Level 3,          Headcount,    Budget
+Amara Osei,     Ravi Chandra,       Priya Nair,       12,           850000
+Amara Osei,     Ravi Chandra,       Diego Marquez,    8,            620000
+Amara Osei,     Lena Fischer,       Ollie Brennan,    4,            310000
+Amara Osei,     Lena Fischer,       Tom Whitfield,    3,            240000
+Amara Osei,     Marcus Webb           , ,             2,            150000
+
+
+there are no ids, no parent references, and — the big one — the row count doesn't match the node count. Five rows describe eight nodes. Amara appears four times, 
+Ravi twice, Lena twice. Every non-leaf node has to be invented by de-duplication; they exist only implicitly. The last row is ragged (no Level 3), so Marcus is 
+a leaf one rung up.

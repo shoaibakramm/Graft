@@ -1,6 +1,16 @@
 /**
+ * The "L" in ELT — Load.
+ *
+ * Rows go into DuckDB exactly as they arrived from the parser. Column names
+ * are preserved verbatim, so a BI export keeps "Level 1" with its space and
+ * capital L rather than being quietly renamed to Level_1. Every value lands as
+ * VARCHAR; empty cells become real SQL NULL.
+ *
+ * No reshaping happens here. All of that is the "T" — a series of SQL queries
+ * that run afterwards against this raw table.
+ *
  * @param {import('@duckdb/duckdb-wasm').AsyncDuckDBConnection} connection
- * @param {string} tableName 
+ * @param {string} tableName
  * @param {Array<Object>} rows
  * @returns {Promise<{ tableName: string, rowCount: number, columns: string[] }>}
  */
@@ -22,102 +32,83 @@ export async function ingestData(connection, tableName, rows) {
         throw new Error('ingestData: rows must be an array.');
     }
 
+
+    // The table name is ours, not the client's, so it stays sanitized.
     const safeTableName = tableName.trim().replace(/[^a-zA-Z0-9_]/g, '_');
+
 
     try {
 
         await connection.query(`DROP TABLE IF EXISTS "${safeTableName}"`);
-        console.log(`ingestData: dropped existing table "${safeTableName}" if it existed.`);
 
         if (rows.length === 0) 
         {
-          console.warn(`ingestData: rows array is empty. "${safeTableName}" will be created with no data.`);
+            console.warn(`ingestData: rows array is empty. "${safeTableName}" will be created with no data.`);
 
-          await connection.query(`CREATE TABLE "${safeTableName}" (empty_placeholder VARCHAR)`);
+            await connection.query(`CREATE TABLE "${safeTableName}" (empty_placeholder VARCHAR)`);
 
-          return {
-            tableName: safeTableName,
-            rowCount: 0,
-            columns: [],
-          };
-
+            return { tableName: safeTableName, rowCount: 0, columns: [] };
         }
 
 
-        const columns = Object.keys(rows[0]).map((col) => col.trim().replace(/[^a-zA-Z0-9_]/g, '_'));
+        // Column names exactly as the file had them. Double quotes let DuckDB
+        // accept spaces, punctuation and mixed case; a name containing a double
+        // quote escapes it by doubling, same as a string literal.
+        const columns = Object.keys(rows[0]);
 
+        const quote = (name) => `"${String(name).replace(/"/g, '""')}"`;
 
-        console.log(`ingestData: detected columns —`, columns);
+        console.log('ingestData: loading raw columns —', columns);
 
-        const columnDefs = columns.map((col) => `"${col}" VARCHAR`).join(', ');
+        const columnDefs = columns.map((col) => `${quote(col)} VARCHAR`).join(', ');
 
-
-        const createSQL = `CREATE TABLE "${safeTableName}" (${columnDefs})`;
-
-        console.log(`ingestData: creating table with SQL —`, createSQL);
-
-
-        
-        await connection.query(createSQL);
+        await connection.query(`CREATE TABLE "${safeTableName}" (${columnDefs})`);
 
 
         const BATCH_SIZE = 500;
 
-        
         let totalInserted = 0;
+
+        const columnList = columns.map(quote).join(', ');
 
 
         for (let i = 0; i < rows.length; i += BATCH_SIZE) 
         {
 
-
-
             const batch = rows.slice(i, i + BATCH_SIZE);
 
-            const originalKeys = Object.keys(rows[0]);
-
             const valuesClauses = batch.map((row) => {
-            
-                const values = originalKeys.map((originalCol) => {
 
+                const values = columns.map((col) => {
 
-                    const val = row[originalCol];
+                    const val = row[col];
 
-                    // Real SQL NULL for missing/empty cells — this is what makes
-                    // COALESCE and NULLIF in the scenario queries actually work.
+                    // Real SQL NULL for missing/empty cells — this is what lets
+                    // COALESCE and NULLIF work in the transform queries.
                     if (val === null || val === undefined || String(val).trim() === '') 
                     {
                         return 'NULL';
                     }
 
-                    const escaped = String(val).trim().replace(/'/g, "''");
-
-                    return `'${escaped}'`;
-
+                    return `'${String(val).trim().replace(/'/g, "''")}'`;
                 });
 
                 return `(${values.join(', ')})`;
-          
             });
 
-        
-          const insertSQL = `INSERT INTO "${safeTableName}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES ${valuesClauses.join(', ')}`;
+            await connection.query(
+                `INSERT INTO "${safeTableName}" (${columnList}) VALUES ${valuesClauses.join(', ')}`
+            );
 
-          await connection.query(insertSQL);
-
-
-          totalInserted += batch.length;
-
-          console.log(`ingestData: inserted ${totalInserted}/${rows.length} rows...`);
-
+            totalInserted += batch.length;
         }
 
-        console.log(`ingestData: ✅ done. Table "${safeTableName}" ready with ${totalInserted} rows.`);
+        console.log(`ingestData: ✅ loaded ${totalInserted} raw rows into "${safeTableName}".`);
 
         return {
-          tableName: safeTableName,
-          rowCount: totalInserted,
-          columns,
+            tableName: safeTableName,
+            rowCount: totalInserted,
+            columns,
         };
 
     } catch (error) {

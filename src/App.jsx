@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import './App.css';
 
 import FileUploader from './demo/upload/FileUploader';
 import { useDatabase } from './demo/db/useDatabase';
 import TreeView from './component/render/TreeView';
+
+
+
 
 
 
@@ -18,75 +21,52 @@ function App() {
   const [uploadError, setUploadError] = useState(null);
 
 
-  // [{ name, rows }] from discovery — one entry per tree.
-  const [trees, setTrees] = useState(null);
-
-
-  const [ingestGen, setIngestGen] = useState(0);
-
+  const [result, setResult] = useState(null);          // { rows, format, label }
 
   const [events, setEvents] = useState([]);
+
+
 
   const [showConsole, setShowConsole] = useState(true);
 
 
-  const [view, setView] = useState('split');
-
-
 
   async function handleDataParsed(rows) {
+
     setUploadError(null);
 
-    setTrees(null);
+    setResult(null);
+
+
+    const transformed = await database.loadAndTransform(rows);
+
+    if (transformed) 
+    {
+
+      setResult(transformed);
     
-    setView('split');
-
-    await database.ingest(rows);
-
-
-    // Signals the effect below. Queries can't be called directly here: runDiscovery still closes over the pre-ingest tableName until the next render, so the first upload would fail with "no data ingested yet".
-    setIngestGen((generation) => generation + 1);
+    }
 
   }
 
 
-
   function handleUploadError(message) {
 
+    setResult(null);
+    
     setUploadError(message);
   
   }
 
 
-
-  useEffect(() => {
-
-    if (ingestGen === 0) 
-    {
-      
-      return;
-
-    }
-
-    (async () => {
-      
-      const found = await database.runDiscovery();
-      
-      setTrees(found);
-
-    })();
-
-  }, [ingestGen]);  
-
-
-  const logEvent = (source, text) => {
-
+  const logEvent = (text) => {
     setEvents((previous) => [
-      { time: new Date().toLocaleTimeString(), source, text },
+      { time: new Date().toLocaleTimeString(), text },
       ...previous.slice(0, 49),
     ]);
-    
   };
+
+
 
 
   const renderTooltip = (node) => (
@@ -97,50 +77,32 @@ function App() {
   );
 
 
-  const nonEmptyTrees = (trees ?? []).filter((t) => t.rows.length > 0);
-
-  const visibleTrees =
-    view === 'split'
-      ? nonEmptyTrees
-      : nonEmptyTrees.filter((t) => t.name === view);
-
 
   const stage =
-    !database.isReady && !database.error   ? 'boot'
-    : database.error || uploadError        ? 'error'
-    : database.isIngesting                 ? 'ingesting'
-    : database.isQuerying                  ? 'querying'
-    : nonEmptyTrees.length > 0             ? 'showing'
-    : trees                                ? 'empty'
+    !database.isReady && !database.error ? 'boot'
+    : database.error || uploadError      ? 'error'
+    : database.isWorking                 ? 'working'
+    : result                             ? 'showing'
     : 'awaiting';
+
+
 
 
   return (
     <div className="app">
 
       <header className="app__header">
-        <h1 className="app__title">The Tree App</h1>
+        <h1 className="app__title">The great App</h1>
 
         <FileUploader
           onDataParsed={handleDataParsed}
           onError={handleUploadError}
         />
 
-        {stage === 'showing' && nonEmptyTrees.length > 1 && (
-          <div className="app__view-toggle">
-            <button onClick={() => setView('split')} disabled={view === 'split'}>
-              All
-            </button>
-            {nonEmptyTrees.map((tree) => (
-              <button
-                key={tree.name}
-                onClick={() => setView(tree.name)}
-                disabled={view === tree.name}
-              >
-                {tree.name}
-              </button>
-            ))}
-          </div>
+        {stage === 'showing' && (
+          <span className="app__format">
+            {result.label} · {result.rows.length} nodes
+          </span>
         )}
 
         <span className="app__stage">stage: {stage}</span>
@@ -153,24 +115,13 @@ function App() {
           <p className="app__notice">Starting the in-browser database…</p>
         )}
 
-        {stage === 'ingesting' && (
-          <p className="app__notice">Loading rows into the database…</p>
-        )}
-
-        {stage === 'querying' && (
-          <p className="app__notice">Discovering datasets and running queries…</p>
+        {stage === 'working' && (
+          <p className="app__notice">Loading and transforming…</p>
         )}
 
         {stage === 'awaiting' && (
           <p className="app__notice">
             Upload a CSV or Excel file to begin.
-          </p>
-        )}
-
-        {stage === 'empty' && (
-          <p className="app__notice app__notice--error">
-            The file was ingested, but no tree rows came back.
-            Check the file has id, name and parentId columns with data in them.
           </p>
         )}
 
@@ -181,23 +132,16 @@ function App() {
         )}
 
         {stage === 'showing' && (
-          <div className="app__trees">
-
-            {visibleTrees.map((tree) => (
-              <section className="app__panel" key={tree.name}>
-                <h3 className="app__panel-title">{tree.name}</h3>
-                <div className="app__panel-body">
-                  <TreeView
-                    data={tree.rows}
-                    renderTooltip={renderTooltip}
-                    onNodeFocus={(node) => node && logEvent(tree.name, `Node '${node.label}' focused. ${node.childIds.length} children.`)}
-                    onNodeClick={(node) => logEvent(tree.name, `Node '${node.label}' clicked. Value: ${node.data.metadata ?? '—'}`)}
-                    onBackgroundClick={() => logEvent(tree.name, 'Background clicked.')}
-                  />
-                </div>
-              </section>
-            ))}
-
+          <div className="app__panel">
+            <div className="app__panel-body">
+              <TreeView
+                data={result.rows}
+                renderTooltip={renderTooltip}
+                onNodeFocus={(node) => node && logEvent(`Node '${node.label}' focused. ${node.childIds.length} children.`)}
+                onNodeClick={(node) => logEvent(`Node '${node.label}' clicked. Value: ${node.data.metadata ?? '—'}`)}
+                onBackgroundClick={() => logEvent('Background clicked.')}
+              />
+            </div>
           </div>
         )}
 
@@ -212,9 +156,9 @@ function App() {
             </div>
             <div className="app__console-body">
               {events.length === 0
-                ? <span className="app__console-hint">Interact with a tree — events appear here.</span>
+                ? <span className="app__console-hint">Interact with the tree — events appear here.</span>
                 : events.map((e, i) => (
-                    <div key={i}>[{e.time}] [{e.source}] {e.text}</div>
+                    <div key={i}>[{e.time}] {e.text}</div>
                   ))}
             </div>
           </div>
