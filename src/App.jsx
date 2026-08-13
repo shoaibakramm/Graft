@@ -92,7 +92,7 @@ function App() {
     <div className="app">
 
       <header className="app__header">
-        <h1 className="app__title">The great App</h1>
+        <h1 className="app__title">GRAFT</h1>
 
         <FileUploader
           onDataParsed={handleDataParsed}
