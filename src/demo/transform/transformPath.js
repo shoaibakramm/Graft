@@ -106,7 +106,7 @@ export async function transformPath(connection, rawTable, columns) {
     FROM s3_root
     -- Shallow paths first, then alphabetically: parents before children, and
     -- siblings in a readable order.
-    ORDER BY LENGTH(clean_path) - LENGTH(REPLACE(clean_path, '/', '')), clean_path ASC
+    ORDER BY ${nameExpr} ASC
   `;
 
 

@@ -47,17 +47,9 @@ export async function transformCanonical(connection, rawTable, columns) {
 
 
   // Sibling order. buildTree turns row order into left-to-right placement, so this clause is the only lever on how the tree reads. Numeric ids sort numerically; anything else falls back to text.
-  const orderParts = [];
-
+  const orderParts = [`TRIM(${nameCol}) ASC`];
 
   
-  if (has('level')) 
-  {
-    orderParts.push(`TRY_CAST(${quote(actual('level'))} AS INTEGER) NULLS LAST`);
-  }
-
-  orderParts.push(`TRY_CAST(${idCol} AS INTEGER) NULLS LAST`, `${idCol} ASC`);
-
 
   const sql = `
     SELECT
